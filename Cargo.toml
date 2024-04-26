@@ -1,0 +1,9 @@
+[package]
+name = "imp_encode"
+version = "0.1.0"
+edition = "2021"
+description = "A library containing several impractical(-ish) encoding methods."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
