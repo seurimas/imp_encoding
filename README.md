@@ -5,4 +5,6 @@ This crate contains some sister code to a series of blog posts I am writing at h
 ## Modules
 
 This crate is divided into several modules, with feature switches by the same name to enable them.
-* futhark - Serialize values into Strings of ancient runes.
+* futhark - Write values in ancient runes.
+* boxes - Draw boxes to pass data.
+* cursed - Spread data over your text, in a slightly cursed looking way.
