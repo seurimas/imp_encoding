@@ -5,8 +5,10 @@ use serde::Serialize;
 const BASE_DIACTRICS_START: u32 = 0x0300;
 const BASE_DIACTRICS_END: u32 = 0x036F;
 const DIACTRICS_BASE: u32 = 0x70;
-const ZWJ: char = '\u{200D}';
 const ZWSP: char = '\u{200B}';
+const ZWNJ: char = '\u{200C}';
+const ZWJ: char = '\u{200D}';
+const MVS: char = '\u{180E}';
 
 fn is_diactric(c: char) -> bool {
     let c = c as u32;
@@ -89,14 +91,16 @@ pub fn diatric_points_to_bytes(points: Vec<u8>) -> Vec<u8> {
 
 pub struct CursedConfig {
     diatrics_break: Option<String>,
-    max_diactrics: usize,
+    max_diactrics_per_letter: Option<usize>,
+    max_diatrics: Option<usize>,
 }
 
 impl Default for CursedConfig {
     fn default() -> Self {
         Self {
-            diatrics_break: Some(ZWJ.to_string()),
-            max_diactrics: 3,
+            diatrics_break: None,
+            max_diactrics_per_letter: None,
+            max_diatrics: None,
         }
     }
 }
@@ -106,8 +110,20 @@ impl CursedConfig {
         Self::default()
     }
 
+    pub fn discord() -> Self {
+        Self::new()
+            .max_diactrics_per_letter(3)
+            .with_zwj_break()
+            .max_diactrics(20)
+    }
+
     pub fn with_zwsp_break(mut self) -> Self {
         self.diatrics_break = Some(ZWSP.to_string());
+        self
+    }
+
+    pub fn with_zwnj_break(mut self) -> Self {
+        self.diatrics_break = Some(ZWNJ.to_string());
         self
     }
 
@@ -116,31 +132,59 @@ impl CursedConfig {
         self
     }
 
+    pub fn with_mvs_break(mut self) -> Self {
+        self.diatrics_break = Some(MVS.to_string());
+        self
+    }
+
     pub fn with_no_break(mut self) -> Self {
         self.diatrics_break = None;
         self
     }
 
+    pub fn max_diactrics_per_letter(mut self, max_diactrics_per_letter: usize) -> Self {
+        self.max_diactrics_per_letter = Some(max_diactrics_per_letter);
+        self
+    }
+
     pub fn max_diactrics(mut self, max_diactrics: usize) -> Self {
-        self.max_diactrics = max_diactrics;
+        self.max_diatrics = Some(max_diactrics);
+        self
+    }
+
+    pub fn with_no_max_diactrics(mut self) -> Self {
+        self.max_diatrics = None;
         self
     }
 
     pub fn can_curse(&self, text_length: usize, data_length: usize) -> bool {
-        if self.diatrics_break.is_some() {
+        let diatrics_for_data = (data_length / 4) * 5;
+        if !self
+            .max_diatrics
+            .map_or(true, |max| diatrics_for_data <= max)
+        {
+            false
+        } else if self.diatrics_break.is_some() {
             true
+        } else if let Some(max_diactrics_per_letter) = self.max_diactrics_per_letter {
+            text_length > usize::div_ceil(diatrics_for_data, max_diactrics_per_letter)
         } else {
-            text_length > (data_length * self.max_diactrics)
+            true
         }
     }
 
     pub fn generate_curse(&self, text: &str, data: &[u8]) -> String {
+        if !self.can_curse(text.len(), data.len()) {
+            panic!("Cannot curse text with given data");
+        }
         let points = bytes_to_diactrics_points(data);
         let mut cursed_text = String::new();
         let mut point_index = 0;
-        let diatrics_per_letter = usize::div_ceil(points.len(), text.len());
+        let mut characters_left = text.chars().count();
         for c in text.chars() {
             cursed_text.push(c);
+            let points_left = points.len() - point_index;
+            let diatrics_per_letter = usize::div_ceil(points_left, characters_left);
             for dia_idx in 0..diatrics_per_letter {
                 if point_index < points.len() {
                     cursed_text.push(
@@ -149,14 +193,17 @@ impl CursedConfig {
                     );
                     point_index += 1;
                 }
-                if (dia_idx + 1) % self.max_diactrics == 0 {
-                    if let Some(diatrics_break) = &self.diatrics_break {
-                        cursed_text.push_str(diatrics_break);
-                    } else {
-                        panic!("Too many diactrics for no break");
+                if let Some(max_diactrics_per_letter) = self.max_diactrics_per_letter {
+                    if (dia_idx + 1) % max_diactrics_per_letter == 0 {
+                        if let Some(diatrics_break) = &self.diatrics_break {
+                            cursed_text.push_str(diatrics_break);
+                        } else {
+                            panic!("Too many diactrics for no break");
+                        }
                     }
                 }
             }
+            characters_left -= 1;
         }
         cursed_text
     }
@@ -244,15 +291,28 @@ mod cursed_tests {
     }
 
     #[test]
-    fn overly_cursed() {
-        let curse_config = CursedConfig::new().max_diactrics(100).with_zwsp_break();
-        let text = "Comments & code";
-        let bytes = (0..255).map(|_| random::<u8>()).collect::<Vec<_>>();
+    fn discord_cursed() {
+        let curse_config = CursedConfig::discord();
+        let text = "Curse";
+        let bytes = (0..16).collect::<Vec<_>>();
         let curse = curse_config.generate_curse(text, &bytes);
         let points = parse_curse_to_points(&curse);
         let bytes_2 = diatric_points_to_bytes(points);
         assert_eq!(bytes, bytes_2);
-        println!("{}", curse);
+        // Copied to Discord, then copy+pasted back.
+        let pasted = "C͓̝̅‍̀ù͗̍‍̀r̰̀͛‍ͭsͪ̀͟‍͟e̟ͥ͝‍́";
+        assert_eq!(curse, pasted);
+    }
+
+    #[test]
+    fn overly_cursed() {
+        let curse_config = CursedConfig::new();
+        let text = "Comments & code";
+        let bytes = (0..100).collect::<Vec<_>>();
+        let curse = curse_config.generate_curse(text, &bytes);
+        let points = parse_curse_to_points(&curse);
+        let bytes_2 = diatric_points_to_bytes(points);
+        assert_eq!(bytes, bytes_2);
     }
 
     #[test]
