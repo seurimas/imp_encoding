@@ -110,12 +110,12 @@ impl BoxLayout {
     // Unlike Base32 futhark encoding, we have variable bits per point.
     pub fn bytes_to_points(&self, bytes: &[u8]) -> Vec<u8> {
         let mut results = Vec::new();
-        let mut bits: u16 = 0;
+        let mut bits: u32 = 0;
         let mut offset = 0;
         let mut x = 0;
         let mut y = 0;
         for byte in bytes {
-            bits |= (*byte as u16) << offset;
+            bits |= (*byte as u32) << offset;
             offset += 8;
             'push_bits: loop {
                 if let Some(connection) = self.get_connections_at(x, y) {
@@ -369,10 +369,10 @@ pub fn box_points_to_bytes(points: &[(u8, usize)]) -> Vec<u8> {
     let mut offset = 0;
     for (point, bits_per_point) in points {
         if offset == 0 {
-            bits = *point as u16;
+            bits = *point as u32;
             offset = *bits_per_point;
         } else {
-            bits |= (*point as u16) << offset;
+            bits |= (*point as u32) << offset;
             offset += *bits_per_point;
         }
         while offset >= 8 {

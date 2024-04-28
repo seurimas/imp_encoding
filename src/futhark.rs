@@ -35,14 +35,14 @@ This treats the numbers as a series of 5-bit values, and packs them into bytes.
 */
 pub fn points_to_bytes(points: Vec<u8>) -> Vec<u8> {
     let mut results = Vec::new();
-    let mut bits: u16 = 0;
+    let mut bits: u32 = 0;
     let mut offset = 0;
     for point in points {
         if offset == 0 {
-            bits = point as u16;
+            bits = point as u32;
             offset = 5;
         } else {
-            bits |= (point as u16) << offset;
+            bits |= (point as u32) << offset;
             offset += 5;
         }
         if offset >= 8 {
@@ -84,10 +84,10 @@ This treats the bytes as a series of 8-bit values, and repacks them into 5-bit v
  */
 pub fn bytes_to_points(bytes: &[u8]) -> Vec<u8> {
     let mut results = Vec::new();
-    let mut bits: u16 = 0;
+    let mut bits: u32 = 0;
     let mut offset = 0;
     for byte in bytes {
-        bits |= (*byte as u16) << offset;
+        bits |= (*byte as u32) << offset;
         offset += 8;
         while offset >= 5 {
             results.push((bits & 0x1f) as u8);
