@@ -140,8 +140,8 @@ mod runes_tests {
     fn test_parse_runes_to_points() {
         assert_eq!(parse_runes_to_points("ᚠᚢ", FUTHARK), vec![0, 1]);
         assert_eq!(parse_runes_to_points("ᚦᚨ", FUTHARK), vec![2, 3]);
-        assert_eq!(parse_runes_to_points("ab", ALPHA_NUM), vec![0, 1]);
-        assert_eq!(parse_runes_to_points("cd", ALPHA_NUM), vec![2, 3]);
+        assert_eq!(parse_runes_to_points("AB", ALPHA_NUM), vec![0, 1]);
+        assert_eq!(parse_runes_to_points("CD", ALPHA_NUM), vec![2, 3]);
     }
 
     #[test]
@@ -149,9 +149,9 @@ mod runes_tests {
         assert_eq!(parse_runes("ᚠᚠ", FUTHARK), vec![0b00000]);
         assert_eq!(parse_runes("ᚢᚠᛌ", FUTHARK), vec![0b00001]);
         assert_eq!(parse_runes("ᚠᛁᚢᚠ", FUTHARK), vec![64, 5]);
-        assert_eq!(parse_runes("akba", ALPHA_NUM), vec![64, 5]);
+        assert_eq!(parse_runes("AKBA", ALPHA_NUM), vec![64, 5]);
         assert_eq!(
-            parse_runes("akbaakbaakba", ALPHA_NUM),
+            parse_runes("AKBAAKBAAKBA", ALPHA_NUM),
             vec![64, 5, 0, 84, 0, 64, 5]
         );
     }
@@ -161,7 +161,7 @@ mod runes_tests {
         assert_eq!(generate_runes(&[0b00000000], FUTHARK), "ᚠᚠ");
         assert_eq!(generate_runes(&[0b00000001], FUTHARK), "ᚢᚠ");
         assert_eq!(generate_runes(&[0b100000], FUTHARK), "ᚠᚢ");
-        assert_eq!(generate_runes(&[64, 5], ALPHA_NUM), "akba");
+        assert_eq!(generate_runes(&[64, 5], ALPHA_NUM), "AKBA");
         assert_eq!(
             generate_runes(&[64, 5, 0, 84, 0, 64, 5], FUTHARK),
             "ᚠᛁᚢᚠᚠᛁᚢᚠᚠᛁᚢᚠ"
@@ -214,7 +214,7 @@ mod cac_tests {
         };
         assert_eq!(
             simple_generate_runes_ascii(&postcard::to_allocvec(&test).unwrap()),
-            "faskgwrnptka"
+            "FASKGWRNPTKA"
         );
     }
 
@@ -227,6 +227,7 @@ mod cac_tests {
         // Magic!
         assert_eq!(create_runes(&test, FUTHARK), "ᚲᚠᛖᛁᚷᛞᛒᛈᛊᛗᛁᚠ");
         // Faskgwarniptaka!
-        assert_eq!(create_runes(&test, ALPHA_NUM), "faskgwrnptka");
+        assert_eq!(create_runes(&test, ALPHA_NUM), "FASKGWRNPTKA");
+        assert_eq!(create_runes(&"C+c", FUTHARK), "ᚨᚡᛏᛞᛖᛒᚢ");
     }
 }
