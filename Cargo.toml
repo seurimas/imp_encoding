@@ -10,6 +10,7 @@ description = "A library containing several impractical(-ish) encoding methods."
 unicode-segmentation = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 postcard = { version = "1.0.4", features = ["alloc"] }
+arboard = { version = "3.2.0", optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -17,6 +18,7 @@ rand = "0.8"
 
 [features]
 default = ["futhark", "boxes", "cursed"]
+clipboard = ["dep:arboard"]
 futhark = []
 boxes = []
 cursed = []

@@ -12,3 +12,8 @@ pub use boxes::*;
 mod cursed;
 #[cfg(feature = "cursed")]
 pub use cursed::*;
+
+#[cfg(feature = "clipboard")]
+mod clipboard;
+#[cfg(feature = "clipboard")]
+pub use clipboard::*;

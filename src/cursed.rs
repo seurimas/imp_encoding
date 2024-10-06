@@ -225,6 +225,11 @@ pub fn parse_curse_to_points(text: &str) -> Vec<u8> {
     points
 }
 
+pub fn bytes_from_curse(text: &str) -> Vec<u8> {
+    let points = parse_curse_to_points(text);
+    diatric_points_to_bytes(points)
+}
+
 pub fn read_from_curse<T: serde::de::DeserializeOwned>(text: &str) -> Option<T> {
     let points = parse_curse_to_points(text);
     let bytes = diatric_points_to_bytes(points);
@@ -285,6 +290,13 @@ mod cursed_tests {
         assert_eq!(bytes.to_vec(), bytes_2);
 
         let bytes = [62, 10, 105, 133, 98, 205, 238];
+        let points = bytes_to_diactrics_points(&bytes);
+        let bytes_2 = diatric_points_to_bytes(points);
+        assert_eq!(bytes.to_vec(), bytes_2);
+
+        let bytes = [
+            62, 10, 105, 133, 98, 205, 238, 62, 10, 105, 133, 98, 205, 238, 123, 23,
+        ];
         let points = bytes_to_diactrics_points(&bytes);
         let bytes_2 = diatric_points_to_bytes(points);
         assert_eq!(bytes.to_vec(), bytes_2);

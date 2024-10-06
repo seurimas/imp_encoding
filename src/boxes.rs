@@ -145,7 +145,6 @@ impl BoxLayout {
     pub fn display_bytes(&self, bytes: &[u8]) -> String {
         let mut result = String::new();
         let points = self.bytes_to_points(bytes);
-        println!("{:?}", points);
         let mut x = 0;
         let mut y = 0;
         for point in points {
@@ -390,6 +389,20 @@ pub fn parse_boxes<T: serde::de::DeserializeOwned>(s: &str) -> Result<T, postcar
     postcard::from_bytes(&bytes)
 }
 
+pub fn gen_layout(value: &str) -> BoxLayout {
+    BoxLayout(
+        value
+            .split('\n')
+            .map(|row| {
+                row.chars()
+                    .filter(|c| !c.is_whitespace())
+                    .map(|c| c.to_string())
+                    .collect()
+            })
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod boxes_tests {
     use super::*;
@@ -407,20 +420,6 @@ mod boxes_tests {
         assert_eq!(CROSS, "┼┽┾┿╀╁╂╃╄╅╆╇╈╉╊╋");
         assert_eq!(HORIZONTAL, "─╼━╾");
         assert_eq!(VERTICAL, "│╽┃╿");
-    }
-
-    fn gen_layout(value: &str) -> BoxLayout {
-        BoxLayout(
-            value
-                .split('\n')
-                .map(|row| {
-                    row.chars()
-                        .filter(|c| !c.is_whitespace())
-                        .map(|c| c.to_string())
-                        .collect()
-                })
-                .collect(),
-        )
     }
 
     #[test]
@@ -611,7 +610,6 @@ mod boxes_tests {
         let box_points = parse_boxes_to_points("┌┐\n└┘");
         assert_eq!(box_points_to_bytes(&box_points), vec![0b00000000]);
         let box_points = parse_boxes_to_points("┍╼╼┑\n╽XX╽\n┕╼─┘");
-        println!("{:?}", box_points);
         assert_eq!(box_points_to_bytes(&box_points), [0b01010101, 0b01010101]);
     }
 
@@ -629,5 +627,169 @@ mod boxes_tests {
                 code: 42
             }
         );
+    }
+}
+
+fn simple_get_connections_at(
+    width: usize,
+    height: usize,
+    x: usize,
+    y: usize,
+) -> Option<Connections> {
+    let right = x < width - 1;
+    let left = x > 0;
+    let down = y < height - 1;
+    let up = y > 0;
+    match (right, left, down, up) {
+        (true, false, true, false) => Some(Connections::RightDown),
+        (false, true, true, false) => Some(Connections::LeftDown),
+        (true, false, false, true) => Some(Connections::RightUp),
+        (false, true, false, true) => Some(Connections::LeftUp),
+        (true, true, true, false) => Some(Connections::RightLeftDown),
+        (true, true, false, true) => Some(Connections::RightLeftUp),
+        (true, false, true, true) => Some(Connections::RightDownUp),
+        (false, true, true, true) => Some(Connections::LeftDownUp),
+        (true, true, true, true) => Some(Connections::All),
+        _ => None,
+    }
+}
+
+fn simple_bytes_to_points(width: usize, height: usize, bytes: &[u8]) -> Vec<u8> {
+    let mut results = Vec::new();
+    let mut bits: u32 = 0;
+    let mut offset = 0;
+    let mut x = 0;
+    let mut y = 0;
+    for byte in bytes {
+        bits |= (*byte as u32) << offset;
+        offset += 8;
+        push_points_and_move_cursor(
+            width,
+            height,
+            &mut x,
+            &mut y,
+            &mut offset,
+            &mut results,
+            &mut bits,
+        );
+    }
+    results
+}
+
+fn push_points_and_move_cursor(
+    width: usize,
+    height: usize,
+    x: &mut usize,
+    y: &mut usize,
+    offset: &mut usize,
+    results: &mut Vec<u8>,
+    bits: &mut u32,
+) {
+    loop {
+        if let Some(connection) = simple_get_connections_at(width, height, *x, *y) {
+            let connection_bits = connection.get_bits();
+            if *offset >= connection_bits {
+                results.push((*bits & ((1 << connection_bits) - 1)) as u8);
+                *bits >>= connection_bits;
+                *offset -= connection_bits;
+            } else {
+                break;
+            }
+        }
+        if *x < width - 1 {
+            *x += 1;
+        } else {
+            *x = 0;
+            *y += 1;
+        }
+        if *offset == 0 {
+            break;
+        }
+    }
+}
+
+fn simple_display_bytes(width: usize, height: usize, bytes: &[u8]) -> String {
+    let mut result = String::new();
+    let points = simple_bytes_to_points(width, height, bytes);
+    let mut x = 0;
+    let mut y = 0;
+    for point in points {
+        let mut pushed_point = false;
+        while !pushed_point {
+            if let Some(connection) = simple_get_connections_at(width, height, x, y) {
+                result.push(connection.get_character(point));
+                pushed_point = true;
+            }
+            if x < width - 1 {
+                x += 1;
+            } else {
+                x = 0;
+                y += 1;
+                if y < height {
+                    result.push('\n');
+                }
+            }
+        }
+    }
+    while y < height {
+        'push_str: loop {
+            if let Some(connection) = simple_get_connections_at(width, height, x, y) {
+                result.push(connection.get_character(0));
+            } else {
+                result.push(' ');
+            }
+            if x < width - 1 {
+                x += 1;
+            } else {
+                break 'push_str;
+            }
+        }
+        x = 0;
+        y += 1;
+        if y < height {
+            result.push('\n');
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+mod cac_tests {
+    use super::*;
+    #[test]
+    fn draw_some_boxes() {
+        let layout = gen_layout(
+            "##\n\
+             ##",
+        );
+        println!("{}", layout.display_bytes(&[0]));
+        let layout = gen_layout(
+            "###\n\
+             #.#\n\
+             ###",
+        );
+        println!("{}", layout.display_bytes(&[0, 0]));
+        let layout = gen_layout(
+            "#####\n\
+             #####\n\
+             ###..\n\
+             ###..",
+        );
+        // Editted in article.
+        println!("{}", layout.display_bytes(&[255, 255, 255, 255]));
+        let layout = gen_layout(
+            "#####\n\
+             #####\n\
+             #####\n\
+             #####\n\
+             #####",
+        );
+        println!("{}", layout.display_bytes(&[255, 255, 255, 255]));
+        let layout = gen_layout(
+            "###\n\
+             ###\n\
+             ###",
+        );
+        println!("{}", layout.display_bytes(&[0, 0]));
     }
 }
